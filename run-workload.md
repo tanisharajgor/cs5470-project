@@ -8,12 +8,12 @@ Workload details (filtering, arrival pattern, sweep): [workloads/sharegpt/WORKLO
 **Steps to Run a Workload**
 
 ## Where things live (Perlmutter)
-Nothing big goes inside the repo. vLLM is pip-installed into a conda env, not cloned, and the model, dataset and traces sit on shared filesystems. The repo only holds our scripts, YAMLs and small result JSONs.
+Nothing big goes inside the repo. vLLM is pip-installed into a Python venv, not cloned, and the model, dataset and traces sit on shared filesystems. The repo only holds our scripts, YAMLs and small result JSONs.
 
 | What | Location | Why |
 |---|---|---|
 | This repo | anywhere, e.g. `~/assignments/cs5470-project` | small; **run all commands from the repo root** (results go to `./results/`, gitignored) |
-| conda env (vLLM, torch) | `/global/common/software/m4999/$USER/vllm-env` | permanent, fast for software, not purged |
+| Python venv (vLLM, torch) | `/global/common/software/m4999/$USER/vllm-env` | permanent, fast for software, not purged |
 | Model weights (`HF_HOME`) | `$SCRATCH/hf` | ~61 GB, too big for `$HOME` |
 | ShareGPT dataset | `$SCRATCH/data/` | ~670 MB |
 | Profiler traces | `$SCRATCH/traces/` | large; upload, then link in `trace_url` |
@@ -39,18 +39,18 @@ echo 'export PYTHONNOUSERSITE=1' >> ~/.bashrc   # ignore ~/.local
 source ~/.bashrc
 ```
 
-**1c. Create the env**
+**1c. Create the env** (venv, not conda: `conda create` crashes in a plugin on Perlmutter and leaves an empty env with no `python`)
 ```bash
-conda deactivate
-module load conda
+module load python
 mkdir -p /global/common/software/m4999/$USER
-conda create -p /global/common/software/m4999/$USER/vllm-env python=3.12 -y
-conda activate /global/common/software/m4999/$USER/vllm-env
+python -m venv /global/common/software/m4999/$USER/vllm-env
+source /global/common/software/m4999/$USER/vllm-env/bin/activate
+which python                 # must end in /vllm-env/bin/python
 python -m pip install --upgrade pip
 python -m pip install vllm   # record the version; everyone pins the same one (vllm==X.Y.Z)
-python -c "import vllm, torch; print(vllm.__version__, torch.__version__)"
+python -c "import vllm, torch; print(vllm.__version__, torch.__version__, torch.cuda.is_available())"
 ```
-Already made an env at `$SCRATCH/envs/vllm-env`? That works too. Activate that path instead, but note it can be purged; the `/global/common/software/m4999` path is the standard.
+`torch.cuda.is_available()` is `False` on the login node (no GPUs); it's `True` on a compute node.
 
 **1d. Download the model and dataset**
 ```bash
@@ -64,7 +64,7 @@ cd -   # back to the repo root
 
 **Every new shell:**
 ```bash
-module load conda && conda activate /global/common/software/m4999/$USER/vllm-env
+module load python && source /global/common/software/m4999/$USER/vllm-env/bin/activate
 cd ~/assignments/cs5470-project
 ```
 
