@@ -1,6 +1,7 @@
 # Datasets (download per workloads/*/README or WORKLOAD_CARD)
 *.json
 !trace_collection/**/*.json
+!configs/moe_tuning/*.json
 
 # Benchmark results and profiler traces (large; referenced via trace_url)
 results/

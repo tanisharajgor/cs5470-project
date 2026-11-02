@@ -16,12 +16,13 @@ Don't install anything into the default `nersc-python` env; it's read-only, and 
 
 **1a. Workspace: our repo and the vLLM source side by side**
 ```
-~/assignments/project-home/
+$WORKSPACE/              # any folder you like, e.g. ~/cs5470
 ├── cs5470-project/   # this repo
 └── vllm/             # vLLM source at the pinned version (v0.33.0)
 ```
 ```bash
-mkdir -p ~/assignments/project-home && cd ~/assignments/project-home
+export WORKSPACE=~/cs5470   # <- change to your own folder
+mkdir -p $WORKSPACE && cd $WORKSPACE
 git clone https://github.com/tanisharajgor/cs5470-project.git
 git clone https://github.com/vllm-project/vllm.git
 cd vllm && git checkout v0.33.0 && cd ..
@@ -39,8 +40,12 @@ If anything is listed that you didn't install on purpose, remove it with `rm -rf
 module load conda
 conda create -y --prefix $PSCRATCH/cs5470-ep python=3.12
 conda activate $PSCRATCH/cs5470-ep
-# ignore ~/.local, keep model + pip cache on scratch (reactivate to apply)
-conda env config vars set PYTHONNOUSERSITE=1 HF_HOME=$PSCRATCH/huggingface PIP_CACHE_DIR=$PSCRATCH/pip-cache
+# ignore ~/.local, keep model + pip cache on scratch, remember $WORKSPACE (reactivate to apply)
+conda env config vars set WORKSPACE=$WORKSPACE PYTHONNOUSERSITE=1 HF_HOME=$PSCRATCH/huggingface PIP_CACHE_DIR=$PSCRATCH/pip-cache
+# compile caches off $HOME: its filesystem doesn't support file locks (FlashInfer crashes with "OSError: [Errno 524]")
+conda env config vars set XDG_CACHE_HOME=$PSCRATCH/.cache FLASHINFER_WORKSPACE_BASE=$PSCRATCH VLLM_CACHE_ROOT=$PSCRATCH/.cache/vllm
+# use the team's tuned MoE kernels (step 2b)
+conda env config vars set VLLM_TUNED_CONFIG_FOLDER=$WORKSPACE/cs5470-project/configs/moe_tuning
 conda deactivate && conda activate $PSCRATCH/cs5470-ep
 which python                 # must be $PSCRATCH/cs5470-ep/bin/python
 ```
@@ -57,7 +62,7 @@ python -m pip install vllm==0.33.0   # team-pinned version; everyone uses the sa
 Option B, editable install from `../vllm` (only if you need to patch vLLM, e.g. timing hooks or expert-load logging in the MoE layer). Python edits take effect without reinstalling; `VLLM_USE_PRECOMPILED=1` reuses the prebuilt CUDA kernels, so there's no 20-min compile like HW2:
 ```bash
 python -m pip install --upgrade pip
-cd ~/assignments/project-home/vllm
+cd $WORKSPACE/vllm
 VLLM_USE_PRECOMPILED=1 python -m pip install -e .
 cd ../cs5470-project
 ```
@@ -66,7 +71,7 @@ Either way, check:
 ```bash
 python -c "import vllm, torch; print(vllm.__version__, vllm.__file__, torch.__version__, torch.version.cuda)"
 ```
-`vllm.__file__` shows which one is active (`site-packages` = A, `project-home/vllm` = B). No `gxx` or `cudatoolkit` module needed for either; the wheels ship their own CUDA libraries. Check in step 3 that the node's driver supports the CUDA version torch prints here.
+`vllm.__file__` shows which one is active (`site-packages` = A, `$WORKSPACE/vllm` = B). No `gxx` or `cudatoolkit` module needed for either; the wheels ship their own CUDA libraries. Check in step 3 that the node's driver supports the CUDA version torch prints here.
 
 **1e. Download the model and dataset**
 ```bash
@@ -75,13 +80,13 @@ huggingface-cli download Qwen/Qwen3-30B-A3B   # not gated, no `hf auth login` ne
 mkdir -p $PSCRATCH/data && cd $PSCRATCH/data
 wget https://huggingface.co/datasets/anon8231489123/ShareGPT_Vicuna_unfiltered/resolve/main/ShareGPT_V3_unfiltered_cleaned_split.json
 sha256sum ShareGPT_V3_unfiltered_cleaned_split.json   # record in WORKLOAD_CARD.md
-cd ~/assignments/project-home/cs5470-project
+cd $WORKSPACE/cs5470-project
 ```
 
 **Every new shell:**
 ```bash
 module load conda && conda activate $PSCRATCH/cs5470-ep
-cd ~/assignments/project-home/cs5470-project
+cd $WORKSPACE/cs5470-project
 ```
 
 ### 2. Allocate a node
@@ -90,6 +95,21 @@ Pin the 40GB A100s so every teammate's GPU runs are on identical hardware:
 salloc -N 1 -C "gpu&hbm40g" --gpus-per-node 4 -q interactive -t 04:00:00 -A m4999
 ```
 After `salloc` lands you on the compute node, re-run the "every new shell" lines. Open a second terminal on the same node for the client (`ssh <nodename>` from a login node; `hostname` on the first shell shows it), as in HW2: shell 1 = server, shell 2 = benchmark client.
+
+### 2b. MoE kernel tuning (once per team, not per person)
+vLLM has no tuned fused-MoE config for Qwen3-30B-A3B on A100-40GB and falls back to defaults (`Using default MoE config` in the server log). One person tunes all expert layouts and commits the JSONs; everyone else just `git pull`s.
+
+| Layout | Configs | File |
+|---|---|---|
+| `c1` | C1 | `E=128,N=192,device_name=NVIDIA_A100-SXM4-40GB.json` |
+| `ep4` | C2, C3, C5 | `E=32,N=768,...` |
+| `ep8` | C4, C6 | `E=16,N=768,...` |
+
+```bash
+bash configs/moe_tuning/tune.sh          # all three (~1-2 h each); or: tune.sh c1 / ep4 / ep8
+git add configs/moe_tuning/*.json && git commit -m "Add tuned MoE configs" && git push
+```
+Requires the `$WORKSPACE/vllm` clone at the same version as the installed vLLM (v0.33.0). Check: after the JSONs exist, the server log no longer prints `Using default MoE config`. Runs made before tuning are practice runs; redo them.
 
 ### 3. Record versions (fill the TBDs in the YAML)
 ```bash
@@ -176,4 +196,6 @@ gcloud compute tpus tpu-vm delete c1-tpu --zone=<zone>
 6. Note anything you had to change below, so C2–C6 follow the same procedure
 
 ## Notes / issues encountered
+- **FlashInfer `OSError: [Errno 524]` on server start (Perlmutter):** caches were in `$HOME`, which doesn't support `flock`. Fixed by the cache env vars in step 1c. Fallback: `VLLM_USE_FLASHINFER_SAMPLER=0`.
+- **`Using default MoE config. Performance might be sub-optimal!` (A100-40GB, E=128, N=192):** vLLM has no tuned fused-MoE config for this model/GPU. Tune with step 2b before the real runs. tpu-inference doesn't use these files; the TPU lead should check for an equivalent.
 - 
