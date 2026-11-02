@@ -10,7 +10,7 @@ description: >
 hf_url: https://huggingface.co/Qwen/Qwen3-30B-A3B
 trace_url: # TBD
 contributor: Team 23 (Isha Patil, Tanisha Rajgor, Tab Hajamaideen, Anishka Raina)
-contact: rajgor.t@northeastern.edu
+contact: tr433@cornell.edu
 
 workload:
   model:
