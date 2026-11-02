@@ -1,0 +1,1 @@
+These are just .yaml templates to follow the conventions of CCL-bench, separtated by model, workload, and number of devices.

@@ -1,0 +1,24 @@
+# Datasets (download per workloads/*/README or WORKLOAD_CARD)
+*.json
+!trace_collection/**/*.json
+
+# Benchmark results and profiler traces (large; referenced via trace_url)
+results/
+traces/
+*.nsys-rep
+*.sqlite
+*.qdrep
+*.pb
+*.pb.gz
+*.trace.json.gz
+*.xplane.pb
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# OS / editor
+.DS_Store
+.vscode/

@@ -1,0 +1,75 @@
+# workload_template.yaml
+version: 1
+
+description: >
+  C1 baseline: online serving of Qwen3-30B-A3B on a Cloud TPU v6e-4 (4 chips)
+  with vLLM + tpu-inference (JAX), tensor parallel only (TP=4, no expert parallelism).
+  Workload: ShareGPT, closed-loop concurrency sweep 1-256, 500 prompts, seed 0, --ignore-eos.
+  See workloads/sharegpt/WORKLOAD_CARD.md. Script: run.sh
+
+hf_url: https://huggingface.co/Qwen/Qwen3-30B-A3B
+trace_url: # TBD
+contributor: Team 23 (Isha Patil, Tanisha Rajgor, Tab Hajamaideen, Anishka Raina)
+contact: rajgor.t@northeastern.edu
+
+workload:
+  model:
+    phase: serving
+    moe: true  # 128 experts, top-8 routing per token
+    granularity: layer
+    model_family: qwen3-30b-a3b
+    precision: bf16
+    epochs: 1  # n/a for inference
+    iteration: 3  # repeats per concurrency point
+    model_arch:
+      num_params: 30500000000          # ~30.5B total, ~3.3B active (HF model card)
+      num_params_embedding: 311164928  # vocab_size(151936) * hidden_size(2048)
+      num_layers: 48
+      num_heads: 32                    # 4 KV heads (GQA)
+      head_dim: 128
+  data:
+    batch_size: 256  # max concurrency in the sweep (1, 2, 4, ..., 256)
+    seq_len: 4096    # --max-model-len
+    input_len:       # variable (ShareGPT); fill in mean from WORKLOAD_CARD.md section 3
+    output_len:      # variable (ShareGPT); fill in mean from WORKLOAD_CARD.md section 3
+    dataset: sharegpt
+  hardware:
+    network_topo:
+      topology: torus  # v6e-4 = 2x2 ICI
+      bandwidth_gbps:
+        - N/A   # single TPU VM, no scale-out
+        - 3584  # per-chip ICI bandwidth, v6e spec (verify against Cloud TPU docs)
+    xpu_spec:
+      type: TPU
+      model: tpu_v6e
+      total_count: 4
+      count_per_node: 4
+    driver_version: # TBD: TPU runtime version, e.g. v2-alpha-tpuv6e
+
+Model-executor:
+  framework:
+    name: vllm  # tpu-inference backend; TBD: record vllm + tpu-inference versions
+    compiler_tool_selection: xla
+  model_plan_parallelization:
+    dp_replicate: 1
+    dp_shard: 1
+    tp: 4
+    pp: 1
+    cp: 1
+    ep: 1
+  communication_library:
+    name: xla
+    version: # TBD: jax / libtpu versions
+    env:
+      PJRT_DEVICE: TPU
+  protocol_selection:
+    - xla_collectives
+    - ici
+
+metric_source:
+  traces:
+    - json_tpu  # XLA/xprof trace
+    - json      # vllm bench serve result JSON
+  metrics_specific_trace:
+    - communication_trace
+    - kernel_trace
