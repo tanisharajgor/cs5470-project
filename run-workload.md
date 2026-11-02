@@ -14,13 +14,27 @@ Run all commands from the repo root; results go to `./results/` (gitignored).
 ### 1. One-time setup (login node)
 Don't install anything into the default `nersc-python` env; it's read-only, and pip either fails with `Permission denied` or silently installs to `~/.local`.
 
-**1a. Check for leftovers in `~/.local`** (these override packages in your env)
+**1a. Workspace: our repo and the vLLM source side by side**
+```
+~/assignments/project-home/
+├── cs5470-project/   # this repo
+└── vllm/             # vLLM source at the pinned version (v0.33.0)
+```
+```bash
+mkdir -p ~/assignments/project-home && cd ~/assignments/project-home
+git clone https://github.com/tanisharajgor/cs5470-project.git
+git clone https://github.com/vllm-project/vllm.git
+cd vllm && git checkout v0.33.0 && cd ..
+ls   # cs5470-project  vllm
+```
+
+**1b. Check for leftovers in `~/.local`** (these override packages in your env)
 ```bash
 ls ~/.local/lib/ 2>/dev/null
 ```
 If anything is listed that you didn't install on purpose, remove it with `rm -rf ~/.local/lib/python3.*`. Also clear any pip cache in home: `rm -rf ~/.cache/pip`.
 
-**1b. Create and configure the env**
+**1c. Create and configure the env**
 ```bash
 module load conda
 conda create -y --prefix $PSCRATCH/cs5470-ep python=3.12
@@ -32,28 +46,42 @@ which python                 # must be $PSCRATCH/cs5470-ep/bin/python
 ```
 If `conda create` errors (e.g. ends with `Example: CONDA_NO_PLUGINS=true conda install <package>`), retry with `CONDA_NO_PLUGINS=true conda create ...`. If `which python` doesn't point into the env, don't continue: ask in the group chat.
 
-**1c. Install vLLM**
+**1d. Install vLLM** (pick one)
+
+Option A, wheel (default; use the `vllm/` clone only as a reference for reading the MoE/EP code):
 ```bash
 python -m pip install --upgrade pip
 python -m pip install vllm==0.33.0   # team-pinned version; everyone uses the same one
-python -c "import vllm, torch; print(vllm.__version__, torch.__version__, torch.version.cuda)"
 ```
-No source build, `gxx`, or `cudatoolkit` module needed (those were for HW2's editable vLLM build); the vLLM wheel ships its own CUDA libraries. Check in step 3 that the node's driver supports the CUDA version torch prints here.
 
-**1d. Download the model and dataset**
+Option B, editable install from `../vllm` (only if you need to patch vLLM, e.g. timing hooks or expert-load logging in the MoE layer). Python edits take effect without reinstalling; `VLLM_USE_PRECOMPILED=1` reuses the prebuilt CUDA kernels, so there's no 20-min compile like HW2:
+```bash
+python -m pip install --upgrade pip
+cd ~/assignments/project-home/vllm
+VLLM_USE_PRECOMPILED=1 python -m pip install -e .
+cd ../cs5470-project
+```
+
+Either way, check:
+```bash
+python -c "import vllm, torch; print(vllm.__version__, vllm.__file__, torch.__version__, torch.version.cuda)"
+```
+`vllm.__file__` shows which one is active (`site-packages` = A, `project-home/vllm` = B). No `gxx` or `cudatoolkit` module needed for either; the wheels ship their own CUDA libraries. Check in step 3 that the node's driver supports the CUDA version torch prints here.
+
+**1e. Download the model and dataset**
 ```bash
 huggingface-cli download Qwen/Qwen3-30B-A3B   # not gated, no `hf auth login` needed; lands in $HF_HOME
 
 mkdir -p $PSCRATCH/data && cd $PSCRATCH/data
 wget https://huggingface.co/datasets/anon8231489123/ShareGPT_Vicuna_unfiltered/resolve/main/ShareGPT_V3_unfiltered_cleaned_split.json
 sha256sum ShareGPT_V3_unfiltered_cleaned_split.json   # record in WORKLOAD_CARD.md
-cd -   # back to the repo root
+cd ~/assignments/project-home/cs5470-project
 ```
 
 **Every new shell:**
 ```bash
 module load conda && conda activate $PSCRATCH/cs5470-ep
-cd ~/assignments/cs5470-project
+cd ~/assignments/project-home/cs5470-project
 ```
 
 ### 2. Allocate a node
