@@ -7,7 +7,7 @@ The dataset-level card. Every config (C1–C6) and both platforms (GPU and TPU) 
 |---|---|
 | Dataset | ShareGPT V3 (`ShareGPT_V3_unfiltered_cleaned_split.json`) |
 | Download | `wget https://huggingface.co/datasets/anon8231489123/ShareGPT_Vicuna_unfiltered/resolve/main/ShareGPT_V3_unfiltered_cleaned_split.json` |
-| SHA-256 | _TBD: run `shasum -a 256` after download and record the hash here_ |
+| SHA-256 | _TBD: run `sha256sum` after download and record the hash here_ |
 | Use case | Single-turn chatbot: short-to-medium prompts with variable-length replies |
 
 ## 2. Request construction
@@ -65,7 +65,7 @@ System TPS (output token throughput), per-user TPS (= 1 / mean TPOT), TTFT (mean
 ## 8. Reference command
 ```bash
 vllm bench serve --backend vllm --model Qwen/Qwen3-30B-A3B --endpoint /v1/completions \
-  --dataset-name sharegpt --dataset-path ShareGPT_V3_unfiltered_cleaned_split.json \
+  --dataset-name sharegpt --dataset-path $PSCRATCH/data/ShareGPT_V3_unfiltered_cleaned_split.json \
   --num-prompts 500 --seed 0 --ignore-eos \
   --request-rate inf --max-concurrency $C \
   --save-result --save-detailed --result-dir results/<platform>/<config>/ \
