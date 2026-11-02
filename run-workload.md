@@ -7,28 +7,72 @@ Workload details (filtering, arrival pattern, sweep): [workloads/sharegpt/WORKLO
 
 **Steps to Run a Workload**
 
+## Where things live (Perlmutter)
+Nothing big goes inside the repo. vLLM is pip-installed into a conda env, not cloned, and the model, dataset and traces sit on shared filesystems. The repo only holds our scripts, YAMLs and small result JSONs.
+
+| What | Location | Why |
+|---|---|---|
+| This repo | anywhere, e.g. `~/assignments/cs5470-project` | small; **run all commands from the repo root** (results go to `./results/`, gitignored) |
+| conda env (vLLM, torch) | `/global/common/software/m4999/$USER/vllm-env` | permanent, fast for software, not purged |
+| Model weights (`HF_HOME`) | `$SCRATCH/hf` | ~61 GB, too big for `$HOME` |
+| ShareGPT dataset | `$SCRATCH/data/` | ~670 MB |
+| Profiler traces | `$SCRATCH/traces/` | large; upload, then link in `trace_url` |
+
+`$SCRATCH` is purged after ~8 weeks of no access. Re-download if something disappears.
+
 ## GPU (Perlmutter, 4x A100)
 
 ### 1. One-time setup (login node)
-```bash
-ssh <user>@perlmutter.nersc.gov
-module load conda
-conda create -p /global/common/software/<project>/vllm-env python=3.12 -y
-conda activate /global/common/software/<project>/vllm-env
-pip install vllm            # record the version; everyone uses the same one
+Don't install anything into the default `nersc-python` env; it's read-only, and `pip install` there silently goes to `~/.local`.
 
-export HF_HOME=$SCRATCH/hf  # add to ~/.bashrc
-huggingface-cli download Qwen/Qwen3-30B-A3B   # ~61 GB
+**1a. Check for leftovers in `~/.local`** (these override packages in your env)
+```bash
+ls ~/.local/lib/ 2>/dev/null
+python -m pip list --user 2>/dev/null
+```
+If anything is listed that you didn't install on purpose, remove it with `python -m pip uninstall -y <pkgs>` or `rm -rf ~/.local/lib/python3.*`.
+
+**1b. Shell config** (once)
+```bash
+echo 'export HF_HOME=$SCRATCH/hf' >> ~/.bashrc
+echo 'export PYTHONNOUSERSITE=1' >> ~/.bashrc   # ignore ~/.local
+source ~/.bashrc
+```
+
+**1c. Create the env**
+```bash
+conda deactivate
+module load conda
+mkdir -p /global/common/software/m4999/$USER
+conda create -p /global/common/software/m4999/$USER/vllm-env python=3.12 -y
+conda activate /global/common/software/m4999/$USER/vllm-env
+python -m pip install --upgrade pip
+python -m pip install vllm   # record the version; everyone pins the same one (vllm==X.Y.Z)
+python -c "import vllm, torch; print(vllm.__version__, torch.__version__)"
+```
+Already made an env at `$SCRATCH/envs/vllm-env`? That works too. Activate that path instead, but note it can be purged; the `/global/common/software/m4999` path is the standard.
+
+**1d. Download the model and dataset**
+```bash
+huggingface-cli download Qwen/Qwen3-30B-A3B   # ~61 GB, lands in $HF_HOME
 
 mkdir -p $SCRATCH/data && cd $SCRATCH/data
 wget https://huggingface.co/datasets/anon8231489123/ShareGPT_Vicuna_unfiltered/resolve/main/ShareGPT_V3_unfiltered_cleaned_split.json
-shasum -a 256 ShareGPT_V3_unfiltered_cleaned_split.json   # record in WORKLOAD_CARD.md
+sha256sum ShareGPT_V3_unfiltered_cleaned_split.json   # record in WORKLOAD_CARD.md
+cd -   # back to the repo root
+```
+
+**Every new shell:**
+```bash
+module load conda && conda activate /global/common/software/m4999/$USER/vllm-env
+cd ~/assignments/cs5470-project
 ```
 
 ### 2. Allocate a node
 ```bash
-salloc -N 1 -C gpu -q interactive -t 04:00:00 -A <project> --gpus-per-node 4
+salloc -N 1 -C gpu -q interactive -t 04:00:00 -A m4999 --gpus-per-node 4
 ```
+After `salloc` lands you on the compute node, re-run the "every new shell" lines.
 
 ### 3. Record versions (fill the TBDs in the YAML)
 ```bash
