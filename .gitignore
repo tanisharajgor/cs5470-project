@@ -2,9 +2,11 @@
 *.json
 !trace_collection/**/*.json
 !configs/moe_tuning/*.json
+!results/model.json
 
 # Benchmark results and profiler traces (large; referenced via trace_url)
-results/
+results/*
+!results/model.json
 traces/
 *.nsys-rep
 *.sqlite
