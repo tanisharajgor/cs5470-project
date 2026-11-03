@@ -5,7 +5,7 @@ description: >
   C1 baseline: online serving of Qwen3-30B-A3B on a Cloud TPU v6e-4 (4 chips)
   with vLLM + tpu-inference (JAX), tensor parallel only (TP=4, no expert parallelism).
   Workload: ShareGPT, closed-loop concurrency sweep 1-256, 500 prompts, seed 0, --ignore-eos.
-  See workloads/sharegpt/WORKLOAD_CARD.md. Script: run.sh
+  See workloads/sharegpt/README.md. Script: run.sh
 
 hf_url: https://huggingface.co/Qwen/Qwen3-30B-A3B
 trace_url: # TBD
@@ -30,8 +30,8 @@ workload:
   data:
     batch_size: 256  # max concurrency in the sweep (1, 2, 4, ..., 256)
     seq_len: 4096    # --max-model-len
-    input_len:       # variable (ShareGPT); fill in mean from WORKLOAD_CARD.md section 3
-    output_len:      # variable (ShareGPT); fill in mean from WORKLOAD_CARD.md section 3
+    input_len: 207   # mean; ShareGPT lengths vary, see workloads/sharegpt/README.md section 3
+    output_len: 220  # mean; ShareGPT lengths vary, see workloads/sharegpt/README.md section 3
     dataset: sharegpt
   hardware:
     network_topo:

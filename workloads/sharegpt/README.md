@@ -21,18 +21,20 @@ These are the defaults of vLLM's built-in ShareGPT sampler (`vllm bench serve --
 | Endpoint | `/v1/completions` (raw text, no chat template, so Qwen3 "thinking" mode is never triggered) |
 | Output length | Fixed to the reference reply length with `--ignore-eos`, so GPU and TPU generate exactly the same number of tokens |
 | Sampling | `--seed 0`, `--num-prompts 500`, the same 500 requests at every concurrency |
-| Temperature | Default (greedy), since quality is not measured |
+| Decoding | Greedy, via server flag `--generation-config vllm` (otherwise Qwen3's generation_config.json sets temperature 0.6 / top_k 20 / top_p 0.95). Quality is not measured |
 
 ## 3. Length distributions
-_Filled in by `card_stats.py` from the first C1 run, which saves per-request lengths via `--save-detailed`._
+From the C1 run (`python analysis/card_stats.py results/gpu/C1/c16_r0.json`), n = 500 requests, Qwen3 tokenizer. Identical at every concurrency because of the fixed seed and `--ignore-eos`.
 
 | Tokens | mean | p50 | p90 | p99 | max |
 |---|---|---|---|---|---|
-| Input (prompt) | TBD | TBD | TBD | TBD | TBD |
-| Output | TBD | TBD | TBD | TBD | TBD |
-| Total (in + out) | TBD | TBD | TBD | TBD | TBD |
+| Input (prompt) | 207 | 76 | 611 | 804 | 975 |
+| Output | 220 | 176 | 519 | 769 | 812 |
+| Total (in + out) | 427 | 364 | 787 | 1220 | 1588 |
 
-Histogram: `workloads/sharegpt/length_hist.png`
+Totals: 103,437 input tokens, 109,888 output tokens. Inputs are heavily skewed (median 76 vs. mean 207): most prompts are short, with a long tail.
+
+Histogram: [length_hist.png](length_hist.png)
 
 ## 4. Arrival pattern
 | Field | Value |
@@ -58,6 +60,7 @@ Why closed loop: it holds the number of concurrent requests (the batch the serve
 | `--max-model-len` | 4096 (covers the 2048 filter with headroom) |
 | `--max-num-seqs` | 256 (≥ the largest concurrency, so the client sets the batch size, not the server) |
 | Prefix caching | **Disabled** (`--no-enable-prefix-caching`) so repeated prefixes don't skew TTFT |
+| Generation config | `--generation-config vllm` (ignore the model's sampling defaults; same decoding on GPU and TPU) |
 
 ## 7. Metrics recorded per point
 System TPS (output token throughput), per-user TPS (= 1 / mean TPOT), TTFT (mean/p50/p99), TPOT (mean/p50/p99), ITL, and request throughput, all from the `vllm bench serve` result JSON.

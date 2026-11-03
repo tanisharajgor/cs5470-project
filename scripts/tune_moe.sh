@@ -1,15 +1,15 @@
 #!/bin/bash
 # Tune vLLM's fused-MoE Triton kernel for Qwen3-30B-A3B on A100-40GB.
-# Writes one JSON per expert layout into this folder; vLLM picks them up via
-# VLLM_TUNED_CONFIG_FOLDER (set in the conda env, see run-workload.md step 1c).
+# Writes one JSON per expert layout into configs/moe_tuning/; vLLM picks them up via
+# VLLM_TUNED_CONFIG_FOLDER (set in the conda env, see docs/run-gpu-workload.md step 1c).
 #
 # Run on a 4-GPU node (salloc -C "gpu&hbm40g"), from anywhere:
-#   bash configs/moe_tuning/tune.sh            # all three layouts
-#   bash configs/moe_tuning/tune.sh c1         # just one: c1 | ep4 | ep8
+#   bash scripts/tune_moe.sh            # all three layouts
+#   bash scripts/tune_moe.sh c1         # just one: c1 | ep4 | ep8
 set -euo pipefail
 
 MODEL=Qwen/Qwen3-30B-A3B
-OUT=$(cd "$(dirname "$0")" && pwd)
+OUT=$(cd "$(dirname "$0")/.." && pwd)/configs/moe_tuning
 BENCH=$WORKSPACE/vllm/benchmarks/kernels/benchmark_moe.py
 
 # --tp-size here only sets how experts are sharded, so EP=8 shapes can be tuned on 4 GPUs.

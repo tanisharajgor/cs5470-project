@@ -1,4 +1,4 @@
-# Datasets (download per workloads/*/README or WORKLOAD_CARD)
+# Datasets (download per workloads/*/README.md)
 *.json
 !trace_collection/**/*.json
 !configs/moe_tuning/*.json
@@ -24,5 +24,5 @@ venv/
 .DS_Store
 .vscode/
 
-# Generated plots (regenerate with analysis/plot_pareto.py)
+# Generated plots (regenerate with analysis/plot_throughput.py)
 figures/

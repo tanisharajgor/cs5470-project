@@ -1,7 +1,8 @@
 """Compute ShareGPT workload-card length stats from a `vllm bench serve --save-detailed` result JSON.
 
-Usage: python workloads/sharegpt/card_stats.py results/gpu/C1/c16_r0.json
-Prints a markdown table for WORKLOAD_CARD.md section 3 and writes length_hist.png next to this file.
+Usage: python analysis/card_stats.py results/gpu/<run>/c16_r0.json
+Prints a markdown table for workloads/sharegpt/README.md section 3 and writes
+workloads/sharegpt/length_hist.png.
 """
 import json
 import sys
@@ -36,7 +37,7 @@ def main(path):
         ax.set_ylabel("Requests")
     fig.suptitle(f"ShareGPT, Qwen3 tokenizer, n={len(inp)}")
     fig.tight_layout()
-    fig.savefig(Path(__file__).parent / "length_hist.png", dpi=150)
+    fig.savefig(Path(__file__).resolve().parents[1] / "workloads" / "sharegpt" / "length_hist.png", dpi=150)
 
 
 if __name__ == "__main__":

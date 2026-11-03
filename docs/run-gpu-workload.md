@@ -3,11 +3,12 @@ Workload: ShareGPT
 Devices: 4
 Configuration: C1 (Baseline) - Tensor parallel only, no EP
 
-Workload details (filtering, arrival pattern, sweep): [workloads/sharegpt/WORKLOAD_CARD.md](workloads/sharegpt/WORKLOAD_CARD.md)
+Workload details (filtering, arrival pattern, sweep): [workloads/sharegpt/README.md](../workloads/sharegpt/README.md)
+TPU counterpart: [run-tpu-workload.md](run-tpu-workload.md)
 
-**Steps to Run a Workload**
+**Steps to Run a Workload on GPU**
 
-Run all commands from the repo root; results go to `./results/` (gitignored).
+Run all commands from the repo root. Results go to `results/` (gitignored).
 
 ## GPU (Perlmutter, 4x A100 40GB)
 
@@ -79,7 +80,7 @@ huggingface-cli download Qwen/Qwen3-30B-A3B   # not gated, no `hf auth login` ne
 
 mkdir -p $PSCRATCH/data && cd $PSCRATCH/data
 wget https://huggingface.co/datasets/anon8231489123/ShareGPT_Vicuna_unfiltered/resolve/main/ShareGPT_V3_unfiltered_cleaned_split.json
-sha256sum ShareGPT_V3_unfiltered_cleaned_split.json   # record in WORKLOAD_CARD.md
+sha256sum ShareGPT_V3_unfiltered_cleaned_split.json   # record in workloads/sharegpt/README.md
 cd $WORKSPACE/cs5470-project
 ```
 
@@ -106,7 +107,7 @@ vLLM has no tuned fused-MoE config for Qwen3-30B-A3B on A100-40GB and falls back
 | `ep8` | C4, C6 | `E=16,N=768,...` |
 
 ```bash
-bash configs/moe_tuning/tune.sh          # all three (~1-2 h each); or: tune.sh c1 / ep4 / ep8
+bash scripts/tune_moe.sh          # all three (~1-2 h each); or: tune_moe.sh c1 / ep4 / ep8
 git add configs/moe_tuning/*.json && git commit -m "Add tuned MoE configs" && git push
 ```
 Requires the `$WORKSPACE/vllm` clone at the same version as the installed vLLM (v0.33.0). Check: after the JSONs exist, the server log no longer prints `Using default MoE config`. Runs made before tuning are practice runs; redo them.
@@ -119,9 +120,11 @@ python -c "import vllm, torch; print(vllm.__version__, torch.__version__, torch.
 The "CUDA Version" in the `nvidia-smi` header must be ≥ `torch.version.cuda`, and `is_available()` must be `True`. If not, the wheel's CUDA is too new for the node's driver; ask the GPU lead before running anything.
 
 ### 4. Start the server
+Run this on the compute node (prompt shows `nid00xxxx`), not a login node: login nodes have GPUs too, so the model loads, but NERSC kills the server there.
 ```bash
 vllm serve Qwen/Qwen3-30B-A3B --tensor-parallel-size 4 \
   --max-model-len 4096 --max-num-seqs 256 --no-enable-prefix-caching \
+  --generation-config vllm \
   --port 8000 > server_c1.log 2>&1 &
 until curl -s localhost:8000/health >/dev/null; do sleep 5; done; echo ready
 
@@ -159,36 +162,8 @@ C=1 and C=2 take the longest (~15+ min each). If the sweep doesn't fit in the 4 
 2. Short run: same bench command with `--num-prompts 32 --max-concurrency 16 --profile`
 3. In C1, expect NCCL all-reduce kernels in every MoE layer (no all-to-all until C2+).
 
-## TPU (Cloud TPU v6e-4)
-
-### 1. Create the VM
-```bash
-gcloud compute tpus tpu-vm create c1-tpu --zone=<v6e zone, e.g. us-east5-b> \
-  --accelerator-type=v6e-4 --version=v2-alpha-tpuv6e
-gcloud compute tpus tpu-vm ssh c1-tpu --zone=<zone>
-```
-
-### 2. Install + download
-- `pip install vllm-tpu` (or the `vllm/vllm-tpu` Docker image); pin the version
-- Download the same model and dataset as the GPU steps
-- Check `df -h`; the boot disk may be too small for the 61 GB model, attach a larger disk if so
-
-### 3. Record versions
-`pip list | grep -iE "vllm|tpu|jax"` and the TPU runtime version
-
-### 4–6. Server, warm-up, sweep
-Same commands as GPU steps 4–6, with `OUT=results/tpu/C1`. First startup and warm-up are much slower (XLA compilation), so don't skip the warm-up.
-
-### 7. Profiling
-tpu-inference writes a JAX/XLA trace; view in TensorBoard / xprof. Check the tpu-inference docs for the env var.
-
-### 8. Delete the VM (it bills while it exists)
-```bash
-gcloud compute tpus tpu-vm delete c1-tpu --zone=<zone>
-```
-
 ## After the run
-1. `python workloads/sharegpt/card_stats.py results/gpu/C1/c16_r0.json`, then paste the table into WORKLOAD_CARD.md section 3 and fill `input_len` / `output_len` in the YAMLs
+1. `python analysis/card_stats.py results/gpu/<run>/c16_r0.json`, then paste the table into workloads/sharegpt/README.md section 3 and fill `input_len` / `output_len` in the YAMLs
 2. Fill the remaining TBDs in the C1 YAMLs (versions, driver, `trace_url`)
 3. Upload traces to shared storage and put the link in `trace_url`
 4. Save the exact commands you ran as `run.sh` in each C1 folder under `trace_collection/`
@@ -197,5 +172,8 @@ gcloud compute tpus tpu-vm delete c1-tpu --zone=<zone>
 
 ## Notes / issues encountered
 - **FlashInfer `OSError: [Errno 524]` on server start (Perlmutter):** caches were in `$HOME`, which doesn't support `flock`. Fixed by the cache env vars in step 1c. Fallback: `VLLM_USE_FLASHINFER_SAMPLER=0`.
+- **Server exits right after `Application startup complete`:** it was started on a login node (`login05`). Use `salloc` and run on the compute node.
+- **`Default vLLM sampling parameters have been overridden by the model's generation_config.json`:** Qwen3 ships temperature 0.6 / top_k 20 / top_p 0.95. We pass `--generation-config vllm` so decoding is greedy and identical on GPU and TPU.
+- **KV cache (C1, A100-40GB, TP=4):** 20.58 GiB/GPU, 898,992 tokens total, 219x max concurrency at 4096 tokens/request.
 - **`Using default MoE config. Performance might be sub-optimal!` (A100-40GB, E=128, N=192):** vLLM has no tuned fused-MoE config for this model/GPU. Tune with step 2b before the real runs. tpu-inference doesn't use these files; the TPU lead should check for an equivalent.
 - 
