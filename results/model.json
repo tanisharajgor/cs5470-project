@@ -1,0 +1,99 @@
+{
+  "date": "20261102-160808",
+  "endpoint_type": "vllm",
+  "backend": "vllm",
+  "label": null,
+  "model_id": "Qwen/Qwen3-30B-A3B",
+  "tokenizer_id": "Qwen/Qwen3-30B-A3B",
+  "num_prompts": 500,
+  "request_rate": "inf",
+  "burstiness": 1.0,
+  "max_concurrency": 16,
+  "duration": 83.33655159699265,
+  "completed": 500,
+  "failed": 0,
+  "total_input_tokens": 103437,
+  "total_output_tokens": 109888,
+  "request_throughput": 5.999768293964823,
+  "request_goodput": null,
+  "output_throughput": 1318.6050765744128,
+  "total_token_throughput": 2559.8011426200915,
+  "input_lens": [
+    12,
+    24,
+    26
+  ],
+  "output_lens": [
+    119,
+    770,
+    232
+  ],
+  "ttfts": [
+    0.25394865695852786,
+    0.039506286033429205,
+    0.18897934001870453
+  ],
+  "itls": [
+    [
+      0.011488296033348888,
+      0.01207730796886608,
+      0.011821702006272972,
+      0.011999757029116154,
+      0.012374092999380082
+    ],
+    [
+      0.008015517960302532,
+      0.019427477032877505,
+      0.058366134006064385,
+      0.06378415896324441,
+      0.063957575999666
+    ],
+    [
+      0.06395755597623065,
+      0.011619541037362069,
+      0.012086685979738832,
+      0.011801853019278497,
+      0.011968445964157581
+    ]
+  ],
+  "latencies": [
+    1.664870037988294,
+    9.475928243016824,
+    2.936966951994691
+  ],
+  "start_times": [
+    453714.341342859,
+    453714.341473552,
+    453714.341818992
+  ],
+  "queue_times": [
+    0.0024968470097519457,
+    0.002607600996270776,
+    0.002943422005046159
+  ],
+  "generated_texts": [
+    "? Yes, I'm familiar with the book \"Traction: Get a Profitable Customers, Keep Th",
+    "\n\nOkay, I need to create a Rust app that uses the ElevenLabs API to convert text",
+    ". You need to put each process in different bullet points with a line break. for"
+  ],
+  "errors": [
+    "",
+    "",
+    ""
+  ],
+  "max_output_tokens_per_s": 1477.0,
+  "max_concurrent_requests": 28,
+  "rtfx": 0.0,
+  "mean_ttft_ms": 50.890154664521106,
+  "median_ttft_ms": 40.572454512584955,
+  "std_ttft_ms": 31.901989012869393,
+  "p99_ttft_ms": 251.10105927044057,
+  "mean_tpot_ms": 11.593265675972802,
+  "median_tpot_ms": 11.52760193122608,
+  "std_tpot_ms": 0.9758789524595001,
+  "p99_tpot_ms": 14.242799289532835,
+  "mean_itl_ms": 11.572112030697124,
+  "median_itl_ms": 10.974640026688576,
+  "std_itl_ms": 4.3777843827675875,
+  "p99_itl_ms": 45.46138821460768
+}

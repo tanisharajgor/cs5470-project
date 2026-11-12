@@ -1,0 +1,30 @@
+# Datasets (download per workloads/*/README.md)
+*.json
+!trace_collection/**/*.json
+!configs/moe_tuning/*.json
+!results/model.json
+
+# Benchmark results and profiler traces (large; referenced via trace_url)
+results/*
+!results/model.json
+traces/
+*.nsys-rep
+*.sqlite
+*.qdrep
+*.pb
+*.pb.gz
+*.trace.json.gz
+*.xplane.pb
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# OS / editor
+.DS_Store
+.vscode/
+
+# Generated plots (regenerate with analysis/plot_throughput.py)
+figures/

@@ -1,0 +1,74 @@
+# workload_template.yaml
+version: 1
+
+description: >
+  C1 baseline: online serving of Qwen3-30B-A3B on 4 A100 GPUs (one Perlmutter node)
+  with vLLM, tensor parallel only (TP=4, no expert parallelism).
+  Workload: ShareGPT, closed-loop concurrency sweep 1-256, 500 prompts, seed 0, --ignore-eos.
+  See workloads/sharegpt/README.md. Script: run.sh
+
+hf_url: https://huggingface.co/Qwen/Qwen3-30B-A3B
+trace_url: # TBD
+contributor: Team 23 (Isha Patil, Tanisha Rajgor, Tab Hajamaideen, Anishka Raina)
+contact: tr433@cornell.edu
+
+workload:
+  model:
+    phase: serving
+    moe: true  # 128 experts, top-8 routing per token
+    granularity: layer  # we need per-MoE-layer dispatch/combine times
+    model_family: qwen3-30b-a3b
+    precision: bf16
+    epochs: 1  # n/a for inference
+    iteration: 3  # repeats per concurrency point
+    model_arch:
+      num_params: 30500000000          # ~30.5B total, ~3.3B active (HF model card)
+      num_params_embedding: 311164928  # vocab_size(151936) * hidden_size(2048)
+      num_layers: 48
+      num_heads: 32                    # 4 KV heads (GQA)
+      head_dim: 128
+  data:
+    batch_size: 256  # max concurrency in the sweep (1, 2, 4, ..., 256)
+    seq_len: 4096    # --max-model-len
+    input_len: 207   # mean; ShareGPT lengths vary, see workloads/sharegpt/README.md section 3
+    output_len: 220  # mean; ShareGPT lengths vary, see workloads/sharegpt/README.md section 3
+    dataset: sharegpt
+  hardware:
+    network_topo:
+      topology: slingshot
+      bandwidth_gbps:
+        - 200   # Slingshot-11 NIC (scale-out, unused at 4 GPUs)
+        - 2400  # NVLink3, 300 GB/s per direction per A100 (scale-up)
+    xpu_spec:
+      type: GPU
+      model: nvidia_a100
+      total_count: 4
+      count_per_node: 4
+    driver_version: # TBD, e.g. cuda_12.4 (nvidia-smi)
+
+Model-executor:
+  framework:
+    name: vllm  # TBD: record version / commit
+    compiler_tool_selection: plain_pytorch  # CUDA graphs on (vLLM default)
+  model_plan_parallelization:
+    dp_replicate: 1
+    dp_shard: 1
+    tp: 4
+    pp: 1
+    cp: 1
+    ep: 1
+  communication_library:
+    name: NCCL
+    version: # TBD: python -c "import torch; print(torch.cuda.nccl.version())"
+    env:
+      NCCL_IB_QPS_PER_CONNECTION:
+  protocol_selection:
+    - rocev2
+    - p2p
+
+metric_source:
+  traces:
+    - nsys
+    - json  # vllm bench serve result JSON (TTFT/TPOT/throughput)
+  metrics_specific_trace:
+    - communication_ratio, total_communication_time, total_kernel_time
