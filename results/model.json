@@ -1,4 +1,6 @@
 {
+  "artifact_kind": "demo_shortened_request_arrays",
+  "demo_notice": "DEMO ONLY: request arrays have been shortened to three entries; aggregate fields describe the original run. Not a complete C1 result and not valid for request-derived metrics or Pareto analysis.",
   "date": "20261102-160808",
   "endpoint_type": "vllm",
   "backend": "vllm",

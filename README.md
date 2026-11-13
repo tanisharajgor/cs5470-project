@@ -24,3 +24,17 @@ python scripts/run_workload.py --platform tpu --config C1 --concurrency 256 128 
 python analysis/plot_throughput.py
 ```
 Run `python scripts/run_workload.py --help` for all options (config, devices, model, workload, sweep).
+
+## CCL-Bench analysis
+
+Use the separate **Python 3.12 CPU analysis environment** to export full vLLM
+results, preview them in the local CCL-Bench dashboard, and plot user/system TPS
+Pareto frontiers. Follow [docs/ccl-bench.md](docs/ccl-bench.md) for setup and
+commands. GPU dependencies remain separate in `requirements-gpu.txt`.
+
+For separate GPU trace collection and follow-up analysis, use
+[docs/gpu-profiling.md](docs/gpu-profiling.md). Serving integration supports
+C1–C3; GPU profiling and C4–C6/multi-node support remain follow-up work.
+
+`results/model.json` is an explicitly labelled **demo with shortened request
+arrays**. It requires `--demo` export and is excluded from Pareto analysis.

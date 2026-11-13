@@ -156,6 +156,10 @@ done
 C=1 and C=2 take the longest (~15+ min each). If the sweep doesn't fit in the 4 h interactive limit, run it with `sbatch`.
 
 ### 7. Profiling run (separate from the sweep; the profiler adds overhead)
+See [gpu-profiling.md](gpu-profiling.md) for the full vLLM 0.33.0 collection,
+verification, transfer, and upstream-analysis procedure. That GPU procedure is
+documented but has not yet been validated on Perlmutter by this integration.
+
 1. Stop the server and restart it with the profiler on:
    - older vLLM: `VLLM_TORCH_PROFILER_DIR=$PSCRATCH/traces/gpu_c1 vllm serve ...`
    - newer vLLM: `--profiler-config` flag (check `vllm serve --help | grep -i profil`)
@@ -163,6 +167,11 @@ C=1 and C=2 take the longest (~15+ min each). If the sweep doesn't fit in the 4 
 3. In C1, expect NCCL all-reduce kernels in every MoE layer (no all-to-all until C2+).
 
 ## After the run
+For validated CCL-Bench export, client-measured serving metrics, local dashboard,
+and Pareto plotting, follow [ccl-bench.md](ccl-bench.md) in a separate Python 3.12
+analysis environment. Transfer the full run directory, including `run_meta.json`
+and detailed request arrays; `results/model.json` is only a shortened demo.
+
 1. `python analysis/card_stats.py results/gpu/<run>/c16_r0.json`, then paste the table into workloads/sharegpt/README.md section 3 and fill `input_len` / `output_len` in the YAMLs
 2. Fill the remaining TBDs in the C1 YAMLs (versions, driver, `trace_url`)
 3. Upload traces to shared storage and put the link in `trace_url`
