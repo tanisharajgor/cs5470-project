@@ -244,6 +244,7 @@ def main():
     finally:
         stop_server(proc)
     print(f"done; results in {out_dir}. Plot: python analysis/plot_throughput.py")
+    print("CCL-Bench: export this run in the separate Python 3.12 analysis environment; see docs/ccl-bench.md")
 
 
 if __name__ == "__main__":

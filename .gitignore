@@ -20,6 +20,10 @@ traces/
 __pycache__/
 *.pyc
 .venv/
+.venv-*/
+.uv-cache/
+.python/
+build/
 venv/
 
 # OS / editor

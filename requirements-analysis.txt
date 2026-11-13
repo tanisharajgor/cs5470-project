@@ -1,0 +1,4 @@
+# CPU-only analysis; install in .venv-analysis, never in the vLLM GPU environment.
+matplotlib==3.10.8
+numpy==2.4.2
+PyYAML==6.0.3

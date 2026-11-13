@@ -1,0 +1,3 @@
+# Accelerator environment only; see docs/run-gpu-workload.md for CUDA setup.
+# Never install this into .venv-analysis.
+vllm==0.33.0
